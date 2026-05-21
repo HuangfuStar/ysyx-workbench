@@ -15,6 +15,7 @@
 
 #include <isa.h>
 #include <cpu/cpu.h>
+#include <memory/vaddr.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
@@ -66,6 +67,44 @@ static int cmd_info(char *args) {
     return 0;
 }
 
+static int cmd_x(char *args) {
+    const char *usage = 
+             "Usages:\n"
+             "    x N Expr: evaluate the expr as address, print N * 4 bytes in mmemory";
+    if (NULL == args) {
+        puts("x should need arguments");
+        puts(usage);
+        return 0;
+    }
+    int n;
+    unsigned long long addr;
+    vaddr_t vaddr;
+    
+    if (sscanf(args, "%d %llx", &n, &addr) != 2) {
+        puts("Invalid arguments");
+        puts(usage);
+        return 0;
+    }
+    // TODO: add addr range check
+    vaddr = (vaddr_t) addr;
+
+    const int columns = 8;
+    for (int i = 0; i < n; i++) {
+        uint32_t bytes = vaddr_read(vaddr + 4 * i, 4);
+
+        if (i % columns == 0) 
+            printf(FMT_WORD ": %08x", vaddr + 4 * i, bytes);
+        else if (i % columns == columns - 1) 
+            printf(" %08x\n", bytes);
+        else 
+            printf(" %08x", bytes);
+        if (i == n - 1 && n % columns != 0)
+            puts("");
+    }
+
+    return 0;
+}
+
 static int cmd_q(char *args) {
   return -1;
 }
@@ -82,7 +121,8 @@ static struct {
   { "q", "Exit NEMU", cmd_q },
   /* TODO: Add more commands */
   { "si", "Single instruction", cmd_si },
-  { "info", "Print the register or watchpoint info", cmd_info }
+  { "info", "Print the register or watchpoint info", cmd_info },
+  { "x", "Read bytes from the memory", cmd_x }
 
 };
 
