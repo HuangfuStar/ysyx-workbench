@@ -23,7 +23,19 @@ const char *regs[] = {
   "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
 };
 
+
+
+
 void isa_reg_display() {
+    const int columns = 4;
+    const int rows = MUXDEF(CONFIG_RVE, 16, 32) / columns;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < columns; j++) {
+            int idx = i * 8 + j;
+            printf("%4s = " FMT_WORD "\t\t", regs[idx], cpu.gpr[idx]);
+        }
+        puts("");
+    }
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {

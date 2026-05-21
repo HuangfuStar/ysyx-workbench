@@ -47,6 +47,24 @@ static int cmd_c(char *args) {
   return 0;
 }
 
+static int cmd_si(char *args) {
+    cpu_exec(1);
+    return 0;
+}
+
+static int cmd_info(char *args) {
+    if (args == NULL) {
+        printf("usages:\n"
+               "    info r: print the registers\n"
+               "    info w: print the watchpoints\n");
+        return 0;
+    }
+    if ('r' == *args)
+        isa_reg_display();
+    if ('w' == *args) 
+        puts("Not implemented");
+    return 0;
+}
 
 static int cmd_q(char *args) {
   return -1;
@@ -62,8 +80,9 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
   /* TODO: Add more commands */
+  { "si", "Single instruction", cmd_si },
+  { "info", "Print the register or watchpoint info", cmd_info }
 
 };
 
