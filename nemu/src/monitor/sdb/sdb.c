@@ -70,36 +70,50 @@ static int cmd_info(char *args) {
 static int cmd_x(char *args) {
     const char *usage = 
              "Usages:\n"
-             "    x N Expr: evaluate the expr as address, print N * 4 bytes in mmemory";
+             "    x N Expr: evaluate Expr as address, print next N 4-byte words in memory";
     if (NULL == args) {
         puts("x should need arguments");
         puts(usage);
         return 0;
     }
+
     int n;
-    unsigned long long addr;
-    vaddr_t vaddr;
-    
-    if (sscanf(args, "%d %llx", &n, &addr) != 2) {
+    int expr_start = 0;
+    if (sscanf(args, "%d%n", &n, &expr_start) != 1 || n <= 0) {
         puts("Invalid arguments");
         puts(usage);
         return 0;
     }
-    // TODO: add addr range check
-    vaddr = (vaddr_t) addr;
+
+    char *e = args + expr_start;
+    while (*e == ' ') {
+        e ++;
+    }
+    if (*e == '\0') {
+        puts("Missing expression");
+        puts(usage);
+        return 0;
+    }
+
+    bool success;
+    vaddr_t vaddr = expr(e, &success);
+    if (!success) {
+        puts("Bad expression");
+        return 0;
+    }
 
     const int columns = 8;
     for (int i = 0; i < n; i++) {
-        uint32_t bytes = vaddr_read(vaddr + 4 * i, 4);
+        vaddr_t cur = vaddr + i * 4;
+        word_t word = vaddr_read(cur, 4);
 
-        if (i % columns == 0) 
-            printf(FMT_WORD ": %08x", vaddr + 4 * i, bytes);
-        else if (i % columns == columns - 1) 
-            printf(" %08x\n", bytes);
-        else 
-            printf(" %08x", bytes);
-        if (i == n - 1 && n % columns != 0)
+        if (i % columns == 0) {
+            printf(FMT_WORD ":", cur);
+        }
+        printf(" %08x", (unsigned)(word & 0xffffffffu));
+        if (i % columns == columns - 1 || i == n - 1) {
             puts("");
+        }
     }
 
     return 0;
