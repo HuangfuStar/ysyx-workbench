@@ -149,17 +149,21 @@ static uint32_t gen_rand_expr_depth(int depth) {
         default: {
             append_both("(");
             uint32_t lhs = gen_rand_expr_depth(depth + 1);
-            char op = "+-*/"[choose(4)];
-            append_to(buf, &idx, " %c ", op);
-            append_to(c_buf, &c_idx, " %c ", op);
-            uint32_t rhs = (op == '/') ? gen_nonzero_expr(depth + 1) : gen_rand_expr_depth(depth + 1);
+            int op = choose(7);
+            const char *op_str[] = { "+", "-", "*", "/", "==", "!=", "&&" };
+            append_to(buf, &idx, " %s ", op_str[op]);
+            append_to(c_buf, &c_idx, " %s ", op_str[op]);
+            uint32_t rhs = (op == 3) ? gen_nonzero_expr(depth + 1) : gen_rand_expr_depth(depth + 1);
             append_both(")");
 
             switch (op) {
-                case '+': return lhs + rhs;
-                case '-': return lhs - rhs;
-                case '*': return lhs * rhs;
-                default: return lhs / rhs;
+                case 0: return lhs + rhs;
+                case 1: return lhs - rhs;
+                case 2: return lhs * rhs;
+                case 3: return lhs / rhs;
+                case 4: return lhs == rhs;
+                case 5: return lhs != rhs;
+                default: return lhs && rhs;
             }
         }
     }
@@ -194,7 +198,7 @@ int main(int argc, char *argv[]) {
     fputs(code_buf, fp);
     fclose(fp);
 
-    int ret = system("gcc /tmp/.code.c -o /tmp/.expr");
+    int ret = system("gcc -w /tmp/.code.c -o /tmp/.expr");
     if (ret != 0) continue;
 
     fp = popen("/tmp/.expr", "r");

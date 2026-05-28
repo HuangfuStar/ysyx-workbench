@@ -14,6 +14,7 @@
 ***************************************************************************************/
 
 #include <isa.h>
+#include <memory/vaddr.h>
 
 /* We use the POSIX regex functions to process regular expressions.
  * Type 'man regex' for more information about POSIX regex functions.
@@ -22,7 +23,9 @@
 
 enum {
   TK_NOTYPE = 256,
-  TK_NUM
+  TK_DEC_NUM, TK_HEX_NUM, TK_OCT_NUM,
+  TK_REG,
+  TK_EQ, TK_NEQ, TK_AND
 };
 
 static struct rule {
@@ -30,16 +33,16 @@ static struct rule {
   int token_type;
 } rules[] = {
 
-  /* TODO: Add more rules.
-   * Pay attention to the precedence level of different rules.
-   */
-
   {" +", TK_NOTYPE},
 
-  {"0[xX][0-9a-fA-F](_?[0-9a-fA-F])*", TK_NUM},
-  {"0(_?[0-7])*", TK_NUM},
-  {"[1-9](_?[0-9])*", TK_NUM},
+  {"0[xX][0-9a-fA-F](_?[0-9a-fA-F])*", TK_HEX_NUM},
+  {"0(_?[0-7])*", TK_OCT_NUM},
+  {"[1-9](_?[0-9])*", TK_DEC_NUM},
+  {"\\$[a-zA-Z0-9]+", TK_REG},
 
+  {"==", TK_EQ},
+  {"!=", TK_NEQ},
+  {"&&", TK_AND},
   {"\\+", '+'},
   {"-", '-'},
   {"\\*", '*'},
@@ -91,15 +94,7 @@ static bool make_token(char *e) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
 
-        // Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
-        //    i, rules[i].regex, position, substr_len, substr_len, substr_start);
-
         position += substr_len;
-
-        /* TODO: Now a new token is recognized with rules[i]. Add codes
-         * to record the token in the array `tokens'. For certain types
-         * of tokens, some extra actions should be performed.
-         */
 
         switch (rules[i].token_type) {
           case TK_NOTYPE:
@@ -135,7 +130,7 @@ static bool make_token(char *e) {
 static int parse_idx = 0;
 static bool parse_ok = true;
 
-static word_t parse_add();
+static word_t parse_and();
 
 static void parse_error(const char *msg) {
   if (parse_ok) {
@@ -155,17 +150,12 @@ static int digit_value(char ch) {
   return -1;
 }
 
-static word_t parse_number(const char *s) {
-  int base = 10;
+static word_t parse_number(const char *s, int base) {
   int pos = 0;
   word_t val = 0;
 
-  if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
-    base = 16;
+  if (base == 16) {
     pos = 2;
-  }
-  else if (s[0] == '0') {
-    base = 8;
   }
 
   for (; s[pos] != '\0'; pos ++) {
@@ -183,15 +173,29 @@ static word_t parse_number(const char *s) {
 static word_t parse_primary() {
   if (!parse_ok) return 0;
 
-  if (peek() == TK_NUM) {
-    word_t val = parse_number(tokens[parse_idx].str);
+  if (peek() == TK_DEC_NUM || peek() == TK_HEX_NUM || peek() == TK_OCT_NUM) {
+    int base = 10;
+    if (peek() == TK_HEX_NUM) base = 16;
+    if (peek() == TK_OCT_NUM) base = 8;
+    word_t val = parse_number(tokens[parse_idx].str, base);
+    parse_idx ++;
+    return val;
+  }
+
+  if (peek() == TK_REG) {
+    bool success = false;
+    word_t val = isa_reg_str2val(tokens[parse_idx].str, &success);
+    if (!success) {
+      parse_error("unknown register");
+      return 0;
+    }
     parse_idx ++;
     return val;
   }
 
   if (peek() == '(') {
     parse_idx ++;
-    word_t val = parse_add();
+    word_t val = parse_and();
     if (peek() != ')') {
       parse_error("expect ')'");
       return 0;
@@ -200,7 +204,7 @@ static word_t parse_primary() {
     return val;
   }
 
-  parse_error("expect number or '('");
+  parse_error("expect number, register or '('");
   return 0;
 }
 
@@ -212,6 +216,11 @@ static word_t parse_unary() {
   if (peek() == '-') {
     parse_idx ++;
     return 0 - parse_unary();
+  }
+  if (peek() == '*') {
+    parse_idx ++;
+    vaddr_t addr = parse_unary();
+    return vaddr_read(addr, 4);
   }
   return parse_primary();
 }
@@ -256,6 +265,36 @@ static word_t parse_add() {
   return val;
 }
 
+static word_t parse_eq() {
+  word_t val = parse_add();
+
+  while (parse_ok && (peek() == TK_EQ || peek() == TK_NEQ)) {
+    int op = peek();
+    parse_idx ++;
+    word_t rhs = parse_add();
+    if (op == TK_EQ) {
+      val = (val == rhs);
+    }
+    else {
+      val = (val != rhs);
+    }
+  }
+
+  return val;
+}
+
+static word_t parse_and() {
+  word_t val = parse_eq();
+
+  while (parse_ok && peek() == TK_AND) {
+    parse_idx ++;
+    word_t rhs = parse_eq();
+    val = (val && rhs);
+  }
+
+  return val;
+}
+
 word_t expr(char *e, bool *success) {
   *success = false;
 
@@ -270,7 +309,7 @@ word_t expr(char *e, bool *success) {
 
   parse_idx = 0;
   parse_ok = true;
-  word_t res = parse_add();
+  word_t res = parse_and();
   if (parse_ok && parse_idx != nr_token) {
     parse_error("unexpected token");
   }
