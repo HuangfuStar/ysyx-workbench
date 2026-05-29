@@ -63,7 +63,26 @@ static int cmd_info(char *args) {
     if ('r' == *args)
         isa_reg_display();
     if ('w' == *args) 
-        puts("Not implemented");
+        display_wp();
+    return 0;
+}
+
+static int cmd_w(char *args) {
+    if (args == NULL) {
+        puts("Usage: w EXPR");
+        return 0;
+    }
+    new_wp(args);
+    return 0;
+}
+
+static int cmd_d(char *args) {
+    int no = -1;
+    if (args == NULL || sscanf(args, "%d", &no) != 1) {
+        puts("Usage: d N");
+        return 0;
+    }
+    free_wp(no);
     return 0;
 }
 
@@ -136,7 +155,9 @@ static struct {
   /* TODO: Add more commands */
   { "si", "Single instruction", cmd_si },
   { "info", "Print the register or watchpoint info", cmd_info },
-  { "x", "Read bytes from the memory", cmd_x }
+  { "x", "Read bytes from the memory", cmd_x },
+  { "w", "Set a watchpoint", cmd_w },
+  { "d", "Delete a watchpoint", cmd_d },
 
 };
 
