@@ -23,9 +23,39 @@ const char *regs[] = {
   "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
 };
 
+
+
+
 void isa_reg_display() {
+  const int columns = 4;
+  const int nr_gpr = MUXDEF(CONFIG_RVE, 16, 32);
+  for (int i = 0; i < nr_gpr; i ++) {
+    printf("%4s = " FMT_WORD, regs[i], cpu.gpr[i]);
+    if (i % columns == columns - 1) {
+      puts("");
+    }
+    else {
+      printf("\t\t");
+    }
+  }
+  if (nr_gpr % columns != 0) {
+    puts("");
+  }
+  printf("%4s = " FMT_WORD "\n", "$pc", cpu.pc);
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
+  *success = true;
+  if (strcmp(s, "$pc") == 0) {
+    return cpu.pc;
+  }
+
+  for (int i = 0; i < MUXDEF(CONFIG_RVE, 16, 32); i ++) {
+    if (strcmp(s, regs[i]) == 0 || strcmp(s + 1, regs[i]) == 0) {
+      return cpu.gpr[i];
+    }
+  }
+
+  *success = false;
   return 0;
 }

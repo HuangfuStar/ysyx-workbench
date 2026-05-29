@@ -151,6 +151,13 @@ config ITRACE_COND
   string "Only trace instructions when the condition is true"
   default "true"
 
+config WATCHPOINT
+  depends on TARGET_NATIVE_ELF
+  bool "Enable watchpoint"
+  default n
+  help
+    Enable watchpoint checking after each guest instruction.
+    This may reduce the performance of NEMU.
 
 config DIFFTEST
   depends on TARGET_NATIVE_ELF

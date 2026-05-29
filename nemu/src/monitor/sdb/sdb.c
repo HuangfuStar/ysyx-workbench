@@ -15,6 +15,7 @@
 
 #include <isa.h>
 #include <cpu/cpu.h>
+#include <memory/vaddr.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
@@ -47,6 +48,99 @@ static int cmd_c(char *args) {
   return 0;
 }
 
+static int cmd_si(char *args) {
+    uint64_t n;
+    if (NULL == args) n = 1;
+    else if (sscanf(args, "%llu", &n) != 1) 
+        puts("Usage: si [<num>]");
+    cpu_exec(n);
+    return 0;
+}
+
+static int cmd_info(char *args) {
+    if (args == NULL) {
+        printf("usages:\n"
+               "    info r: print the registers\n"
+               "    info w: print the watchpoints\n");
+        return 0;
+    }
+    if ('r' == *args)
+        isa_reg_display();
+    if ('w' == *args) 
+        display_wp();
+    return 0;
+}
+
+static int cmd_w(char *args) {
+    if (args == NULL) {
+        puts("Usage: w EXPR");
+        return 0;
+    }
+    new_wp(args);
+    return 0;
+}
+
+static int cmd_d(char *args) {
+    int no = -1;
+    if (args == NULL || sscanf(args, "%d", &no) != 1) {
+        puts("Usage: d N");
+        return 0;
+    }
+    free_wp(no);
+    return 0;
+}
+
+static int cmd_x(char *args) {
+    const char *usage = 
+             "Usages:\n"
+             "    x N Expr: evaluate Expr as address, print next N 4-byte words in memory";
+    if (NULL == args) {
+        puts("x should need arguments");
+        puts(usage);
+        return 0;
+    }
+
+    int n;
+    int expr_start = 0;
+    if (sscanf(args, "%d%n", &n, &expr_start) != 1 || n <= 0) {
+        puts("Invalid arguments");
+        puts(usage);
+        return 0;
+    }
+
+    char *e = args + expr_start;
+    while (*e == ' ') {
+        e ++;
+    }
+    if (*e == '\0') {
+        puts("Missing expression");
+        puts(usage);
+        return 0;
+    }
+
+    bool success;
+    vaddr_t vaddr = expr(e, &success);
+    if (!success) {
+        puts("Bad expression");
+        return 0;
+    }
+
+    const int columns = 8;
+    for (int i = 0; i < n; i++) {
+        vaddr_t cur = vaddr + i * 4;
+        word_t word = vaddr_read(cur, 4);
+
+        if (i % columns == 0) {
+            printf(FMT_WORD ":", cur);
+        }
+        printf(" %08x", (unsigned)(word & 0xffffffffu));
+        if (i % columns == columns - 1 || i == n - 1) {
+            puts("");
+        }
+    }
+
+    return 0;
+}
 
 static int cmd_q(char *args) {
   return -1;
@@ -62,8 +156,12 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
   /* TODO: Add more commands */
+  { "si", "Single instruction", cmd_si },
+  { "info", "Print the register or watchpoint info", cmd_info },
+  { "x", "Read bytes from the memory", cmd_x },
+  { "w", "Set a watchpoint", cmd_w },
+  { "d", "Delete a watchpoint", cmd_d },
 
 };
 

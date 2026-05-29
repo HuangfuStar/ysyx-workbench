@@ -20,7 +20,17 @@ void am_init_monitor();
 void engine_start();
 int is_exit_status_bad();
 
+#ifndef CONFIG_TARGET_AM
+int run_expr_test(const char *input_file);
+#endif
+
 int main(int argc, char *argv[]) {
+#ifndef CONFIG_TARGET_AM
+  if (argc >= 2 && strcmp(argv[1], "--expr-test") == 0) {
+    return run_expr_test(argc >= 3 ? argv[2] : "input");
+  }
+#endif
+
   /* Initialize the monitor. */
 #ifdef CONFIG_TARGET_AM
   am_init_monitor();
