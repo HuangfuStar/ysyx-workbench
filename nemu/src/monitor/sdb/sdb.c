@@ -49,7 +49,11 @@ static int cmd_c(char *args) {
 }
 
 static int cmd_si(char *args) {
-    cpu_exec(1);
+    uint64_t n;
+    if (NULL == args) n = 1;
+    else if (sscanf(args, "%llu", &n) != 1) 
+        puts("Usage: si [<num>]");
+    cpu_exec(n);
     return 0;
 }
 
