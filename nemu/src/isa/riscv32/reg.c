@@ -27,15 +27,21 @@ const char *regs[] = {
 
 
 void isa_reg_display() {
-    const int columns = 4;
-    const int rows = MUXDEF(CONFIG_RVE, 16, 32) / columns;
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < columns; j++) {
-            int idx = i * 8 + j;
-            printf("%4s = " FMT_WORD "\t\t", regs[idx], cpu.gpr[idx]);
-        }
-        puts("");
+  const int columns = 4;
+  const int nr_gpr = MUXDEF(CONFIG_RVE, 16, 32);
+  for (int i = 0; i < nr_gpr; i ++) {
+    printf("%4s = " FMT_WORD, regs[i], cpu.gpr[i]);
+    if (i % columns == columns - 1) {
+      puts("");
     }
+    else {
+      printf("\t\t");
+    }
+  }
+  if (nr_gpr % columns != 0) {
+    puts("");
+  }
+  printf("%4s = " FMT_WORD "\n", "$pc", cpu.pc);
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
