@@ -37,6 +37,8 @@ int main(int argc, char **argv) {
     step(dut, tfp);
   }
 
+  VL_PRINTF("gpio = 0x%02x\n", dut->gpio);
+
   dut->final();
   tfp->close();
   delete tfp;

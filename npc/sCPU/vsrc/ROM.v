@@ -18,8 +18,8 @@ module ROM(
     rom[ 4] = 8'h14; // add  r1, r1, r0
     rom[ 5] = 8'h03; // add  r0, r0, r3
     rom[ 6] = 8'hd2; // bner0 4, r2
-    rom[ 7] = 8'hdd; // bner0 7, r1
-    rom[ 8] = 8'h00;
+    rom[ 7] = 8'h41; // out  r1 -> gpio
+    rom[ 8] = 8'he1; // bner0 8, r1
     rom[ 9] = 8'h00;
     rom[10] = 8'h00;
     rom[11] = 8'h00;

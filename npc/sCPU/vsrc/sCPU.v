@@ -1,9 +1,10 @@
 module sCPU(
     input clk,
     input rst,
-    output [3:0] pc,
-    output [7:0] inst
+    output [7:0] gpio
 );
+    wire [3:0] pc;
+    wire [7:0] inst;
     wire [3:0] pc_next;
     wire [1:0] rs1;
     wire [1:0] rs2;
@@ -23,6 +24,7 @@ module sCPU(
     wire JMP;
     wire SubCtr;
     wire imm2Reg;
+    wire gpioWE;
     /* verilator lint_off UNUSEDSIGNAL */
     wire alu_zf_unused;
     wire alu_of_unused;
@@ -58,7 +60,8 @@ module sCPU(
         .RegSource(RegSource),
         .JMP(JMP),
         .SubCtr(SubCtr),
-        .imm2Reg(imm2Reg)
+        .imm2Reg(imm2Reg),
+        .gpioWE(gpioWE)
     );
 
     MuxKey #(2, 1, 2) u_raddr1(
@@ -105,6 +108,14 @@ module sCPU(
     );
 
     assign branch_taken = |(rdata1 ^ rdata2);
+
+    Reg #(8, 8'h00) u_gpio(
+        .clk(clk),
+        .rst(rst),
+        .din(rdata2),
+        .dout(gpio),
+        .wen(gpioWE)
+    );
 
     nextPC u_npc(
         .pc(pc),
