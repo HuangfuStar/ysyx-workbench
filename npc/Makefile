@@ -1,51 +1,42 @@
-TOPNAME = top
-NXDC_FILES = constr/$(TOPNAME).nxdc
-INC_PATH ?=
-
+TOPNAME = Top
 VERILATOR = verilator
-VERILATOR_CFLAGS += -MMD --build -cc \
-	-O3 --x-assign fast --x-initial fast --noassert
 
 BUILD_DIR = ./build
 OBJ_DIR = $(BUILD_DIR)/obj_dir
 BIN = $(BUILD_DIR)/$(TOPNAME)
+WAVE = $(BUILD_DIR)/wave.fst
+IMG ?=
+
+VSRCS = $(abspath ./src/vsrc/MiniRVPkg.sv) \
+	$(shell find $(abspath ./src/vsrc) $(abspath ./common) \( -name "*.sv" -o -name "*.v" \) ! -name "MiniRVPkg.sv" | sort)
+CSRCS = $(shell find $(abspath ./src/csrc) \( -name "*.c" -o -name "*.cc" -o -name "*.cpp" \) | sort)
+
+VERILATOR_FLAGS += -Wall --cc --exe --build --trace-fst
+VERILATOR_FLAGS += -O3 --x-assign fast --x-initial fast --noassert
 
 default: $(BIN)
 
 $(shell mkdir -p $(BUILD_DIR))
 
-SRC_AUTO_BIND = $(abspath $(BUILD_DIR)/auto_bind.cpp)
-$(SRC_AUTO_BIND): $(NXDC_FILES)
-	python3 $(NVBOARD_HOME)/scripts/auto_pin_bind.py $^ $@
-
-VSRCS = $(shell find $(abspath ./vsrc) -name "*.v")
-CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -o -name "*.cc" -o -name "*.cpp")
-CSRCS += $(SRC_AUTO_BIND)
-
-include $(NVBOARD_HOME)/scripts/nvboard.mk
-
-INCFLAGS = $(addprefix -I, $(INC_PATH))
-CXXFLAGS += $(INCFLAGS) -DTOP_NAME="\"V$(TOPNAME)\""
-
-$(BIN): $(VSRCS) $(CSRCS) $(NVBOARD_ARCHIVE)
+$(BIN): $(VSRCS) $(CSRCS)
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-	@rm -rf $(OBJ_DIR)
-	$(VERILATOR) $(VERILATOR_CFLAGS) -Wall \
+	@mkdir -p $(BUILD_DIR)
+	$(VERILATOR) $(VERILATOR_FLAGS) \
 		--top-module $(TOPNAME) \
-		$^ \
-		$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
-		--Mdir $(OBJ_DIR) --exe -o $(abspath $(BIN))
-
-all: default
+		$(VSRCS) $(CSRCS) \
+		--Mdir $(OBJ_DIR) \
+		-o $(abspath $(BIN))
 
 run: $(BIN)
-	@$^
+	-@$(BIN) $(IMG)
 
 sim: run
+
+wave: run
+	@echo $(WAVE)
+	gtkwave $(WAVE)
 
 clean:
 	rm -rf $(BUILD_DIR)
 
-include ../Makefile
-
-.PHONY: default all run sim clean
+.PHONY: default run sim wave clean
