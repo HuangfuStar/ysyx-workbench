@@ -39,6 +39,6 @@ wave: run
 clean:
 	rm -rf $(BUILD_DIR)
 
-inclue ../Makefile
+include ../Makefile
 
 .PHONY: default run sim wave clean
