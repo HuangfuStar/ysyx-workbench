@@ -11,6 +11,10 @@
 
 namespace {
 
+constexpr const char *kAnsiFgRed = "\33[1;31m";
+constexpr const char *kAnsiFgGreen = "\33[1;32m";
+constexpr const char *kAnsiNone = "\33[0m";
+
 constexpr uint32_t kPmemBase = 0x80000000u;
 constexpr uint32_t kPmemSize = 1u << 20;
 constexpr uint32_t kResetCycles = 5;
@@ -134,7 +138,10 @@ int main(int argc, char **argv) {
   trace.close();
 
   if (g_halted) {
-    std::printf("ebreak at pc = 0x%08x, code = %d\n", static_cast<uint32_t>(g_halt_pc), g_halt_code);
+    const char *trap_name = (g_halt_code == 0) ? "HIT GOOD TRAP" : "HIT BAD TRAP";
+    const char *trap_color = (g_halt_code == 0) ? kAnsiFgGreen : kAnsiFgRed;
+    std::printf("npc: %s%s%s at pc = 0x%08x, code = %d\n",
+        trap_color, trap_name, kAnsiNone, static_cast<uint32_t>(g_halt_pc), g_halt_code);
     return g_halt_code;
   }
 
