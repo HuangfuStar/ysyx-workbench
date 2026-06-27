@@ -48,12 +48,9 @@ static inline word_t mulh_ss(word_t a, word_t b) {
 
 static inline word_t mulh_su(word_t a, word_t b) {
   int64_t lhs = (int64_t)(sword_t)a;
-  uint64_t rhs = (uint64_t)b;
-  uint64_t prod = (lhs < 0 ? (~(uint64_t)(-lhs) + 1) : (uint64_t)lhs) * rhs;
-  if (lhs < 0) {
-    prod = ~prod + 1;
-  }
-  return (word_t)(prod >> 32);
+  int64_t rhs = (uint32_t)b;
+  int64_t prod = lhs * rhs;
+  return (word_t)((uint64_t)prod >> 32);
 }
 
 static inline word_t mulh_uu(word_t a, word_t b) {
