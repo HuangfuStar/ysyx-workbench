@@ -46,6 +46,7 @@ module MiniRV(
   );
 
   IM u_IM (
+    .rst_in(rst_in),
     .pc_in(w_pc_cur),
     .inst_out(w_inst_data)
   );
