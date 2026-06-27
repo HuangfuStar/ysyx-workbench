@@ -1,3 +1,3 @@
-TOPNAME = top
+TOPNAME=top
 
 include ../template.mk

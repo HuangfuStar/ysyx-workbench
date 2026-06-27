@@ -1,6 +1,6 @@
 module top(
   input  [8:0] sw,
-  output [15:0] ledr,
+  output [4:0] ledr,
   output [7:0] seg0
 );
   wire en;
@@ -48,6 +48,5 @@ module top(
   assign ledr[2:0] = code;
   assign ledr[3] = en;
   assign ledr[4] = valid;
-  assign ledr[15:5] = 11'b0;
   assign seg0 = valid ? seg_data : 8'b11111111;
 endmodule

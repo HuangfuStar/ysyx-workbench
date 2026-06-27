@@ -1,0 +1,4 @@
+/build
+!*.nxdc
+!template.sh
+!resource/picture.hex
