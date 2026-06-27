@@ -142,7 +142,25 @@ static int cmd_x(char *args) {
     return 0;
 }
 
+static int cmd_p(char *args) {
+    if (args == NULL) {
+        puts("Usage: p EXPR");
+        return 0;
+    }
+
+    bool success = false;
+    word_t value = expr(args, &success);
+    if (!success) {
+        puts("Bad expression");
+        return 0;
+    }
+
+    printf(FMT_WORD " (%llu)\n", value, (unsigned long long)value);
+    return 0;
+}
+
 static int cmd_q(char *args) {
+  nemu_state.state = NEMU_QUIT;
   return -1;
 }
 
@@ -159,6 +177,7 @@ static struct {
   /* TODO: Add more commands */
   { "si", "Single instruction", cmd_si },
   { "info", "Print the register or watchpoint info", cmd_info },
+  { "p", "Evaluate an expression", cmd_p },
   { "x", "Read bytes from the memory", cmd_x },
   { "w", "Set a watchpoint", cmd_w },
   { "d", "Delete a watchpoint", cmd_d },
