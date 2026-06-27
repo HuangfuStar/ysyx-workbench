@@ -26,6 +26,6 @@ package MiniRVPkg;
   localparam logic [1:0] ALU_SRC2_IIMM = 2'b01;
   localparam logic [1:0] ALU_SRC2_SIMM = 2'b10;
 
-  localparam logic [31:0] RESET_PC     = 32'h0000_0000;
+  localparam logic [31:0] RESET_PC     = 32'h8000_0000;
   localparam logic [31:0] EBREAK_INST  = 32'h0010_0073;
 endpackage

@@ -11,7 +11,7 @@
 
 namespace {
 
-constexpr uint32_t kPmemBase = 0x00000000u;
+constexpr uint32_t kPmemBase = 0x80000000u;
 constexpr uint32_t kPmemSize = 1u << 20;
 constexpr uint32_t kResetCycles = 5;
 constexpr uint64_t kMaxCycles = 100000;
