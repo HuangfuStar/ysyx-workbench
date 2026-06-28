@@ -6,7 +6,7 @@
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
 
 int printf(const char *fmt, ...) {
-  char buf[2048]; // KISS
+  char buf[32768]; // KISS
   va_list ap;
 
   va_start(ap, fmt);
@@ -59,6 +59,25 @@ int vsprintf(char *out, const char *fmt, va_list ap) {
         buf[n++] = '0' + (mag % 10);
         mag /= 10;
       } while (mag != 0);
+
+      while (zero_pad && n < width) {
+        out[len++] = '0';
+        width--;
+      }
+
+      while (n > 0) {
+        out[len++] = buf[--n];
+      }
+    } else if (*p == 'x') {
+      unsigned int val = va_arg(ap, unsigned int);
+      char buf[16];
+      int n = 0;
+
+      do {
+        unsigned int digit = val & 0xf;
+        buf[n++] = (digit < 10) ? ('0' + digit) : ('a' + digit - 10);
+        val >>= 4;
+      } while (val != 0);
 
       while (zero_pad && n < width) {
         out[len++] = '0';
