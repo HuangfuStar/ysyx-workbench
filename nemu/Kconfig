@@ -146,6 +146,13 @@ config ITRACE
   bool "Enable instruction tracer"
   default y
 
+config DTRACE
+  depends on TRACE && TARGET_NATIVE_ELF && MODE_SYSTEM
+  bool "Enable device tracer"
+  default y
+  help
+    Trace MMIO/PIO device accesses in a compact log format.
+
 config ITRACE_COND
   depends on ITRACE
   string "Only trace instructions when the condition is true"
