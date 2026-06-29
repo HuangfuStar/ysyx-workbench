@@ -32,9 +32,10 @@ int vsprintf(char *out, const char *fmt, va_list ap) {
     p++;
     int zero_pad = 0;
     int width = 0;
-    if (*p == '0') {
-      zero_pad = 1;
-      p++;
+    if (*p >= '0' && *p <= '9') {
+      if (*p == '0') {
+        zero_pad = 1;
+      }
       while (*p >= '0' && *p <= '9') {
         width = width * 10 + (*p - '0');
         p++;
@@ -60,8 +61,8 @@ int vsprintf(char *out, const char *fmt, va_list ap) {
         mag /= 10;
       } while (mag != 0);
 
-      while (zero_pad && n < width) {
-        out[len++] = '0';
+      while (n < width) {
+        out[len++] = zero_pad ? '0' : ' ';
         width--;
       }
 
@@ -79,8 +80,27 @@ int vsprintf(char *out, const char *fmt, va_list ap) {
         val >>= 4;
       } while (val != 0);
 
-      while (zero_pad && n < width) {
-        out[len++] = '0';
+      while (n < width) {
+        out[len++] = zero_pad ? '0' : ' ';
+        width--;
+      }
+
+      while (n > 0) {
+        out[len++] = buf[--n];
+      }
+    } else if (*p == 'X') {
+      unsigned int val = va_arg(ap, unsigned int);
+      char buf[16];
+      int n = 0;
+
+      do {
+        unsigned int digit = val & 0xf;
+        buf[n++] = (digit < 10) ? ('0' + digit) : ('A' + digit - 10);
+        val >>= 4;
+      } while (val != 0);
+
+      while (n < width) {
+        out[len++] = zero_pad ? '0' : ' ';
         width--;
       }
 
