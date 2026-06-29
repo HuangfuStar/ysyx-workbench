@@ -1,9 +1,11 @@
 #include <verilated.h>
 
+#include <cassert>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <sys/time.h>
 #include <vector>
 
 #include "VTop.h"
@@ -17,9 +19,13 @@ constexpr const char *kAnsiNone = "\33[0m";
 
 constexpr uint32_t kPmemBase = 0x80000000u;
 constexpr uint32_t kPmemSize = 1u << 20;
+constexpr uint32_t kUartAddr = 0x10000000u;
+constexpr uint32_t kTimerAddr = 0x10000010u;
 constexpr uint32_t kResetCycles = 5;
 constexpr uint64_t kMaxCycles = 100000;
 constexpr uint32_t kEbreakInst = 0x00100073u;
+
+uint64_t time_start_point;
 
 uint8_t g_pmem[kPmemSize] = {};
 bool g_halted = false;
@@ -32,6 +38,16 @@ bool in_pmem(uint32_t addr) {
 
 uint32_t host_index(uint32_t addr) {
   return (addr & ~0x3u) - kPmemBase;
+}
+
+uint64_t get_time_us() {
+  struct timeval now = {};
+  gettimeofday(&now, nullptr);
+  return static_cast<uint64_t>(now.tv_sec) * 1000000 + now.tv_usec;
+}
+
+uint64_t get_uptime_us() {
+  return get_time_us() - time_start_point;
 }
 
 void init_default_image() {
@@ -75,6 +91,13 @@ void tick(VTop *dut, VerilatedFstC *trace, vluint64_t &sim_time) {
 }  // namespace
 
 extern "C" int pmem_read(int raddr) {
+  if (raddr == static_cast<int>(kTimerAddr)) {
+    return static_cast<int>(get_uptime_us());
+  }
+  if (raddr == static_cast<int>(kTimerAddr + 4)) {
+    return static_cast<int>(get_uptime_us() >> 32);
+  }
+
   const uint32_t addr = static_cast<uint32_t>(raddr) & ~0x3u;
   if (!in_pmem(addr)) {
     std::fprintf(stderr, "pmem_read out of range: 0x%08x\n", addr);
@@ -89,6 +112,27 @@ extern "C" int pmem_read(int raddr) {
 }
 
 extern "C" void pmem_write(int waddr, int wdata, char wmask) {
+  if (waddr == static_cast<int>(kUartAddr)) {
+    if (static_cast<uint8_t>(wmask) != 0x01) {
+      std::fprintf(stderr, "uart only supports 8-bit writes: addr=0x%08x mask=0x%02x\n",
+          static_cast<uint32_t>(waddr), static_cast<uint8_t>(wmask));
+      assert(0);
+    }
+    std::putchar(wdata & 0xff);
+    std::fflush(stdout);
+    return;
+  }
+
+  if (waddr == static_cast<int>(kTimerAddr) || waddr == static_cast<int>(kTimerAddr + 4)) {
+    if (static_cast<uint8_t>(wmask) != 0x0f) {
+      std::fprintf(stderr, "timer only supports 32-bit accesses: addr=0x%08x mask=0x%02x\n",
+          static_cast<uint32_t>(waddr), static_cast<uint8_t>(wmask));
+      std::exit(1);
+    }
+    std::fprintf(stderr, "timer is read-only: 0x%08x\n", static_cast<uint32_t>(waddr));
+    std::exit(1);
+  }
+
   const uint32_t addr = static_cast<uint32_t>(waddr) & ~0x3u;
   if (!in_pmem(addr)) {
     std::fprintf(stderr, "pmem_write out of range: 0x%08x\n", addr);
@@ -129,8 +173,9 @@ int main(int argc, char **argv) {
     tick(&dut, &trace, sim_time);
   }
 
+  time_start_point = get_time_us();
   dut.rst_in = 0;
-  for (uint64_t cycle = 0; cycle < kMaxCycles && !g_halted; ++cycle) {
+  for (uint64_t cycle = 0; !g_halted; ++cycle) {
     tick(&dut, &trace, sim_time);
   }
 
