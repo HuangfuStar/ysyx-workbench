@@ -163,6 +163,23 @@ config DTRACE
   help
     Trace MMIO/PIO device accesses in a compact log format.
 
+config MTRACE
+  depends on TRACE && TARGET_NATIVE_ELF
+  bool "Enable memory tracer"
+  default n
+  help
+    Trace physical memory accesses in a compact log format.
+
+config MTRACE_ADDR_START
+  depends on MTRACE
+  hex "Start address of memory tracing range"
+  default 0x0
+
+config MTRACE_ADDR_END
+  depends on MTRACE
+  hex "End address of memory tracing range"
+  default 0xffffffff
+
 config ITRACE_COND
   depends on ITRACE
   string "Only trace instructions when the condition is true"
