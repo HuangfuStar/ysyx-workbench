@@ -146,6 +146,16 @@ config ITRACE
   bool "Enable instruction tracer"
   default y
 
+config IRINGBUF
+  depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER && ISA_riscv
+  bool "Enable instruction ring buffer"
+  default n
+
+config IRINGBUF_NR
+  depends on IRINGBUF
+  int "Instruction ring buffer size"
+  default 32
+
 config DTRACE
   depends on TRACE && TARGET_NATIVE_ELF && MODE_SYSTEM
   bool "Enable device tracer"
