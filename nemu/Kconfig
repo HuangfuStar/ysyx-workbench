@@ -146,6 +146,13 @@ config ITRACE
   bool "Enable instruction tracer"
   default y
 
+config FTRACE
+  depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER && ISA_riscv
+  bool "Enable function tracer"
+  default n
+  help
+    Trace function call/return with symbols loaded from an ELF file.
+
 config IRINGBUF
   depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER && ISA_riscv
   bool "Enable instruction ring buffer"
