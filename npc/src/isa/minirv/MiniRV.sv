@@ -123,6 +123,69 @@ module MiniRV(
   assign w_jmp_target = {w_alu_result[31:1], 1'b0} | (w_jimm_unused & 32'b0);
   assign w_is_ebreak = (w_opcode_data == OPCODE_SYSTEM) && (w_inst_data == EBREAK_INST);
 
+`ifdef CONFIG_DEBUG
+  export "DPI-C" function npc_get_pc;
+  export "DPI-C" function npc_get_gpr;
+  export "DPI-C" function npc_get_gpr_num;
+  export "DPI-C" function npc_get_inst;
+  export "DPI-C" function npc_get_next_pc;
+  export "DPI-C" function npc_get_mem_valid;
+  export "DPI-C" function npc_get_mem_is_write;
+  export "DPI-C" function npc_get_mem_addr;
+  export "DPI-C" function npc_get_mem_wdata;
+  export "DPI-C" function npc_get_mem_rdata;
+  export "DPI-C" function npc_get_mem_len;
+
+  function int npc_get_pc();
+    npc_get_pc = w_pc_cur;
+  endfunction
+
+  function int npc_get_gpr(input int idx);
+    if (idx < 0 || idx >= 32) begin
+      npc_get_gpr = 0;
+    end else begin
+      npc_get_gpr = u_GPR.u_RegisterFile.rf[idx[4:0]];
+    end
+  endfunction
+
+  function int npc_get_gpr_num();
+    npc_get_gpr_num = 32;
+  endfunction
+
+  function int npc_get_inst();
+    npc_get_inst = w_inst_data;
+  endfunction
+
+  function int npc_get_next_pc();
+    npc_get_next_pc = w_pc_next;
+  endfunction
+
+  function int npc_get_mem_valid();
+    npc_get_mem_valid = w_dm_re || w_ctr_signal.ctr_DM_we;
+  endfunction
+
+  function int npc_get_mem_is_write();
+    npc_get_mem_is_write = w_ctr_signal.ctr_DM_we;
+  endfunction
+
+  function int npc_get_mem_addr();
+    npc_get_mem_addr = w_alu_result;
+  endfunction
+
+  function int npc_get_mem_wdata();
+    npc_get_mem_wdata = w_gpr_rdata2;
+  endfunction
+
+  function int npc_get_mem_rdata();
+    npc_get_mem_rdata = w_dm_rdata;
+  endfunction
+
+  function int npc_get_mem_len();
+    npc_get_mem_len = (w_dm_re || w_ctr_signal.ctr_DM_wsize || w_ctr_signal.ctr_DM_rsize) ?
+                      ((w_ctr_signal.ctr_DM_wsize || w_ctr_signal.ctr_DM_rsize) ? 4 : 1) : 0;
+  endfunction
+`endif
+
   always_ff @(posedge clk_in) begin
     if (!rst_in && w_is_ebreak) begin
       npc_ebreak(w_pc_cur, w_a0_data);

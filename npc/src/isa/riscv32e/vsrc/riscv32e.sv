@@ -1,0 +1,291 @@
+module riscv32e(
+    input logic clk_in,
+    input logic rst_in
+);
+    import ALUPkg::*;
+    import NextPCPkg::*;
+    import RV32EPkg::*;
+    import "DPI-C" function void npc_ebreak(input int pc, input int code);
+
+    logic [31:0] pc;
+    logic [31:0] pc_next;
+    logic [31:0] pc_step;
+    logic [31:0] inst;
+
+    logic [6:0]  opcode;
+    logic [2:0]  funct3;
+    logic [6:0]  funct7;
+    logic [4:0]  rs1;
+    logic [4:0]  rs2;
+    logic [4:0]  rd;
+
+    logic [31:0] iimm;
+    logic [31:0] simm;
+    logic [31:0] bimm;
+    logic [31:0] uimm;
+    logic [31:0] jimm;
+
+    logic [31:0] rs1_data;
+    logic [31:0] rs2_data;
+    logic [31:0] a0_data;
+    logic [31:0] gpr_wdata;
+    logic        gpr_we;
+
+    logic [31:0] alu_src1;
+    logic [31:0] alu_src2;
+    logic [31:0] alu_result;
+    logic [31:0] mem_rdata;
+    logic        branch_taken;
+    logic        is_ebreak;
+
+    ALUctr_t     alu_ctr;
+    NextPCctr_t  nextpc_ctr;
+    GPRWbSel_t   wb_sel;
+    ALUSrc2Sel_t alu_src2_sel;
+
+    logic is_lui;
+    logic is_auipc;
+    logic is_jal;
+    logic is_jalr;
+    logic is_branch;
+    logic is_load;
+    logic is_store;
+    logic is_opimm;
+    logic is_op;
+
+    assign opcode = inst[6:0];
+    assign rd     = inst[11:7];
+    assign funct3 = inst[14:12];
+    assign rs1    = inst[19:15];
+    assign rs2    = inst[24:20];
+    assign funct7 = inst[31:25];
+
+    assign iimm = {{20{inst[31]}}, inst[31:20]};
+    assign simm = {{20{inst[31]}}, inst[31:25], inst[11:7]};
+    assign bimm = {{19{inst[31]}}, inst[31], inst[7], inst[30:25], inst[11:8], 1'b0};
+    assign uimm = {inst[31:12], 12'b0};
+    assign jimm = {{11{inst[31]}}, inst[31], inst[19:12], inst[20], inst[30:21], 1'b0};
+
+    assign is_lui    = (opcode == OPCODE_LUI);
+    assign is_auipc  = (opcode == OPCODE_AUIPC);
+    assign is_jal    = (opcode == OPCODE_JAL);
+    assign is_jalr   = (opcode == OPCODE_JALR)   && (funct3 == 3'b000);
+    assign is_branch = (opcode == OPCODE_BRANCH);
+    assign is_load   = (opcode == OPCODE_LOAD);
+    assign is_store  = (opcode == OPCODE_STORE);
+    assign is_opimm  = (opcode == OPCODE_OPIMM);
+    assign is_op     = (opcode == OPCODE_OP);
+    assign is_ebreak = (opcode == OPCODE_SYSTEM) && (inst == EBREAK_INST);
+
+    always_comb begin
+        wb_sel = GPR_WB_ALU;
+        if (is_load) begin
+            wb_sel = GPR_WB_MEM;
+        end else if (is_jal || is_jalr) begin
+            wb_sel = GPR_WB_PC4;
+        end else if (is_lui) begin
+            wb_sel = GPR_WB_IMM;
+        end
+    end
+
+    always_comb begin
+        alu_src2_sel = ALU_SRC_RS2;
+        if (is_store) begin
+            alu_src2_sel = ALU_SRC_SIMM;
+        end else if (is_lui || is_auipc) begin
+            alu_src2_sel = ALU_SRC_UIMM;
+        end else if (is_opimm || is_load || is_jalr) begin
+            alu_src2_sel = ALU_SRC_IIMM;
+        end
+    end
+
+    always_comb begin
+        alu_ctr = ALU_ADD;
+
+        if (is_branch) begin
+            unique case (funct3)
+                3'b000: alu_ctr = ALU_EQ;
+                3'b001: alu_ctr = ALU_NE;
+                3'b100: alu_ctr = ALU_LT;
+                3'b101: alu_ctr = ALU_GE;
+                3'b110: alu_ctr = ALU_LTU;
+                3'b111: alu_ctr = ALU_GEU;
+                default: alu_ctr = ALU_ADD;
+            endcase
+        end else if (is_op || is_opimm) begin
+            unique case (funct3)
+                3'b000: alu_ctr = (is_op && (funct7 == 7'b0100000)) ? ALU_SUB : ALU_ADD;
+                3'b001: alu_ctr = ALU_SLL;
+                3'b010: alu_ctr = ALU_LT;
+                3'b011: alu_ctr = ALU_LTU;
+                3'b100: alu_ctr = ALU_XOR;
+                3'b101: alu_ctr = (funct7 == 7'b0100000) ? ALU_SRA : ALU_SRL;
+                3'b110: alu_ctr = ALU_OR;
+                3'b111: alu_ctr = ALU_AND;
+                default: alu_ctr = ALU_ADD;
+            endcase
+        end
+    end
+
+    assign alu_src1 = is_auipc ? pc : (is_lui ? 32'b0 : rs1_data);
+    assign alu_src2 =
+        (alu_src2_sel == ALU_SRC_RS2)  ? rs2_data :
+        (alu_src2_sel == ALU_SRC_IIMM) ? iimm :
+        (alu_src2_sel == ALU_SRC_SIMM) ? simm :
+                                         uimm;
+
+    assign branch_taken = is_branch && alu_result[0];
+
+    always_comb begin
+        nextpc_ctr = NEXTPC_A4;
+        if (is_jal) begin
+            nextpc_ctr = NEXTPC_JAL;
+        end else if (is_jalr) begin
+            nextpc_ctr = NEXTPC_JALR;
+        end else if (is_branch) begin
+            nextpc_ctr = NEXTPC_BRANCH;
+        end
+    end
+
+    assign gpr_we = !rst_in && (rd < 5'd16) && (rd != 5'd0) &&
+                    (is_lui || is_auipc || is_jal || is_jalr || is_load || is_opimm || is_op);
+    assign gpr_wdata =
+        (wb_sel == GPR_WB_MEM) ? mem_rdata :
+        (wb_sel == GPR_WB_PC4) ? pc_step :
+        (wb_sel == GPR_WB_IMM) ? uimm :
+                                 alu_result;
+
+    GPR #(
+        .ADDR_WIDTH(5),
+        .RF_ADDR_WIDTH(4),
+        .DATA_WIDTH(32),
+        .A0_ADDR(10)
+    ) u_gpr (
+        .clk_in(clk_in),
+        .rst_in(rst_in),
+        .raddr1_in(rs1),
+        .raddr2_in(rs2),
+        .wdata_in(gpr_wdata),
+        .waddr_in(rd),
+        .we_in(gpr_we),
+        .rdata1_out(rs1_data),
+        .rdata2_out(rs2_data),
+        .a0_out(a0_data)
+    );
+
+    IMem u_imem (
+        .rst(rst_in),
+        .addr(pc),
+        .inst(inst)
+    );
+
+    ALU u_alu (
+        .A(alu_src1),
+        .B(alu_src2),
+        .ALUctr(alu_ctr),
+        .C(alu_result)
+    );
+
+    DMem u_dmem (
+        .clk(clk_in),
+        .addr(alu_result),
+        .re(is_load),
+        .we(!rst_in && is_store),
+        .funct3(funct3),
+        .wdata(rs2_data),
+        .rdata(mem_rdata)
+    );
+
+    NextPC u_nextpc (
+        .pc(pc),
+        .rs1(rs1_data),
+        .iimm(iimm),
+        .Bcond(branch_taken),
+        .bimm(bimm),
+        .jimm(jimm),
+        .nextPCctr(nextpc_ctr),
+        .pcs_next(pc_step),
+        .pcd_next(pc_next)
+    );
+
+`ifdef CONFIG_DEBUG
+    export "DPI-C" function npc_get_pc;
+    export "DPI-C" function npc_get_gpr;
+    export "DPI-C" function npc_get_gpr_num;
+    export "DPI-C" function npc_get_inst;
+    export "DPI-C" function npc_get_next_pc;
+    export "DPI-C" function npc_get_mem_valid;
+    export "DPI-C" function npc_get_mem_is_write;
+    export "DPI-C" function npc_get_mem_addr;
+    export "DPI-C" function npc_get_mem_wdata;
+    export "DPI-C" function npc_get_mem_rdata;
+    export "DPI-C" function npc_get_mem_len;
+
+    function int npc_get_pc();
+        npc_get_pc = pc;
+    endfunction
+
+    function int npc_get_gpr(input int idx);
+        if (idx < 0 || idx >= 16) begin
+            npc_get_gpr = 0;
+        end else begin
+            npc_get_gpr = u_gpr.u_RegisterFile.rf[idx[3:0]];
+        end
+    endfunction
+
+    function int npc_get_gpr_num();
+        npc_get_gpr_num = 16;
+    endfunction
+
+    function int npc_get_inst();
+        npc_get_inst = inst;
+    endfunction
+
+    function int npc_get_next_pc();
+        npc_get_next_pc = pc_next;
+    endfunction
+
+    function int npc_get_mem_valid();
+        npc_get_mem_valid = {31'b0, (is_load || is_store)};
+    endfunction
+
+    function int npc_get_mem_is_write();
+        npc_get_mem_is_write = {31'b0, is_store};
+    endfunction
+
+    function int npc_get_mem_addr();
+        npc_get_mem_addr = alu_result;
+    endfunction
+
+    function int npc_get_mem_wdata();
+        npc_get_mem_wdata = rs2_data;
+    endfunction
+
+    function int npc_get_mem_rdata();
+        npc_get_mem_rdata = mem_rdata;
+    endfunction
+
+    function int npc_get_mem_len();
+        if (is_load || is_store) begin
+            unique case (funct3)
+                3'b000: npc_get_mem_len = 1;
+                3'b001: npc_get_mem_len = 2;
+                default: npc_get_mem_len = 4;
+            endcase
+        end else begin
+            npc_get_mem_len = 0;
+        end
+    endfunction
+`endif
+
+    always_ff @(posedge clk_in) begin
+        if (rst_in) begin
+            pc <= RESET_PC;
+        end else begin
+            pc <= pc_next;
+            if (is_ebreak) begin
+                npc_ebreak(pc, a0_data);
+            end
+        end
+    end
+endmodule
