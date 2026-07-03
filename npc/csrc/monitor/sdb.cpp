@@ -8,7 +8,7 @@
 #include <string>
 
 #include "monitor/expr.h"
-#include "sim.h"
+#include "dut.h"
 #include "trace/trace.h"
 
 namespace {

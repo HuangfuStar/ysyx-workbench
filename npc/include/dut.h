@@ -1,5 +1,5 @@
-#ifndef NPC_SIM_H
-#define NPC_SIM_H
+#ifndef NPC_DUT_H
+#define NPC_DUT_H
 
 #include <cstdint>
 

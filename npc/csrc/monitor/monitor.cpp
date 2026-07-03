@@ -6,9 +6,9 @@
 #include <verilated.h>
 
 #include "device/device.h"
-#include "memory/paddr.h"
+#include "memory.h"
 #include "monitor/sdb.h"
-#include "sim.h"
+#include "dut.h"
 #include "trace/trace.h"
 #include "utils/state.h"
 

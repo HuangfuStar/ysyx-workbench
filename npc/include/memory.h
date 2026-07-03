@@ -1,5 +1,5 @@
-#ifndef NPC_PADDR_H
-#define NPC_PADDR_H
+#ifndef NPC_MEMORY_H
+#define NPC_MEMORY_H
 
 #include <cstdint>
 

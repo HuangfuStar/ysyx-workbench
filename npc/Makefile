@@ -3,6 +3,11 @@ ISA ?= riscv32e
 VERILATOR = verilator
 VALID_ISAS := minirv riscv32e
 
+NPC_HOME ?= $(CURDIR)
+ifeq ($(wildcard $(NPC_HOME)/csrc/npc-main.cpp),)
+  $(error NPC_HOME=$(NPC_HOME) is not an npc repo)
+endif
+
 # trace function switch
 CONFIG_ITRACE ?= 0
 CONFIG_MTRACE ?= 0
@@ -19,20 +24,21 @@ WAVE = $(BUILD_DIR)/wave.fst
 IMG ?=
 ELF ?= $(subst .bin,.elf,$(IMG))
 
-# source code inclusion
-NPC_VSRCS :=
-NPC_CSRCS :=
-
-include $(abspath ./src/common/filelist.mk)
-
 # check the validility of the ISA
 ifneq ($(MAKECMDGOALS),clean)
 ifeq ($(filter $(ISA),$(VALID_ISAS)),)
 $(error Unsupported ISA '$(ISA)'. Supported ISA values: $(VALID_ISAS))
 endif
-include $(abspath ./src/isa/filelist.mk)
 endif
 
+# source code inclusion
+NPC_VSRCS :=
+NPC_CSRCS :=
+NPC_INC := -I$(NPC_HOME)/include
+include $(NPC_HOME)/csrc/filelist.mk
+ifneq ($(MAKECMDGOALS),clean)
+include $(NPC_HOME)/vsrc/filelist.mk
+endif
 VSRCS = $(NPC_VSRCS)
 CSRCS = $(NPC_CSRCS)
 
@@ -55,7 +61,7 @@ ifneq ($(CONFIG_IRINGBUF),0)
 VERILATOR_FLAGS += -DCONFIG_IRINGBUF -DCONFIG_IRINGBUF_NR=$(CONFIG_IRINGBUF_NR)
 endif
 
-TRACE_CFLAGS = -I$(abspath ./src/common/csrc) -DCONFIG_DEBUG --std=c++20
+TRACE_CFLAGS = -DCONFIG_DEBUG --std=c++20
 ifneq ($(CONFIG_ITRACE),0)
 TRACE_CFLAGS += -DCONFIG_ITRACE
 endif
@@ -78,7 +84,7 @@ TRACE_CFLAGS += -I$(abspath ../nemu/tools/capstone/repo/include)
 TRACE_LDFLAGS += -ldl # for dlopen/dlsym/dlclose
 endif
 
-VERILATOR_FLAGS += --CFLAGS "$(TRACE_CFLAGS)"
+VERILATOR_FLAGS += --CFLAGS "$(TRACE_CFLAGS) $(NPC_INC)"
 ifneq ($(strip $(TRACE_LDFLAGS)),)
 VERILATOR_FLAGS += --LDFLAGS "$(TRACE_LDFLAGS)"
 endif

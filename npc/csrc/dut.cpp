@@ -1,4 +1,4 @@
-#include "sim.h"
+#include <dut.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -12,7 +12,7 @@
 #include "VTop__Dpi.h"
 #include "svdpi.h"
 #include "verilated_fst_c.h"
-#include "memory/paddr.h"
+#include "memory.h"
 #include "trace/trace.h"
 #include "utils/state.h"
 

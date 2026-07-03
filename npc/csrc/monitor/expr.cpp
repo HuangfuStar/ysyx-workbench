@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <string>
 
-#include "sim.h"
+#include "dut.h"
 
 namespace {
 
