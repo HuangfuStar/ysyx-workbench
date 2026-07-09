@@ -2,12 +2,18 @@
 #include <riscv/riscv.h>
 #include <klib.h>
 
+#define IRQ_SYSCALL 11
+
 static Context* (*user_handler)(Event, Context*) = NULL;
 
 Context* __am_irq_handle(Context *c) {
   if (user_handler) {
     Event ev = {0};
     switch (c->mcause) {
+      case IRQ_SYSCALL:
+        c->mepc += 4;
+        ev.event = (c->GPR1 == (uintptr_t)-1 ? EVENT_YIELD : EVENT_SYSCALL);
+        break;
       default: ev.event = EVENT_ERROR; break;
     }
 

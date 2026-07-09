@@ -187,6 +187,13 @@ config MTRACE_ADDR_END
   hex "End address of memory tracing range"
   default 0xffffffff
 
+config ETRACE
+  depends on TRACE && TARGET_NATIVE_ELF
+  bool "Enable exception tracer"
+  default n
+  help
+    Trace exception/interrupt entry in a compact log format.
+
 config ITRACE_COND
   depends on ITRACE
   string "Only trace instructions when the condition is true"

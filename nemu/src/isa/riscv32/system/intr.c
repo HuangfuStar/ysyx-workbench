@@ -14,13 +14,30 @@
 ***************************************************************************************/
 
 #include <isa.h>
-
+/** 
+ * @brief  simulate the trap(interrupt or excetption)
+ * 
+ * @param  NO   Exception code
+ * @param  epc
+ *
+ * @return
+ */
 word_t isa_raise_intr(word_t NO, vaddr_t epc) {
-  /* TODO: Trigger an interrupt/exception with ``NO''.
-   * Then return the address of the interrupt/exception vector.
-   */
-
-  return 0;
+  cpu.mepc = epc;
+  cpu.mcause = NO;
+  IFDEF(CONFIG_ETRACE,
+    if (NO == 11) {
+      log_write("[etrace] intr NO=%lu mepc=" FMT_WORD " mtvec=" FMT_WORD
+          " " MUXDEF(CONFIG_RVE, "a5", "a7") "=" FMT_WORD "\n",
+          (unsigned long)NO, cpu.mepc, cpu.mtvec,
+          cpu.gpr[MUXDEF(CONFIG_RVE, 15, 17)]);
+    }
+    else {
+      log_write("[etrace] intr NO=%lu mepc=" FMT_WORD " mtvec=" FMT_WORD "\n",
+          (unsigned long)NO, cpu.mepc, cpu.mtvec);
+    }
+  );
+  return cpu.mtvec;
 }
 
 word_t isa_query_intr() {

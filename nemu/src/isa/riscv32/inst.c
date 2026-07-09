@@ -24,6 +24,9 @@
 #define Mr vaddr_read
 #define Mw vaddr_write
 
+// TODO: define the all mcause code in separate file
+#define ECALL_FROM_MMODE 11
+
 enum {
   TYPE_I, TYPE_U, TYPE_S, TYPE_J, TYPE_R, TYPE_B,
   TYPE_N, // none
@@ -58,6 +61,10 @@ static inline word_t mulh_su(word_t a, word_t b) {
 static inline word_t mulh_uu(word_t a, word_t b) {
   uint64_t prod = (uint64_t)a * (uint64_t)b;
   return (word_t)(prod >> 32);
+}
+
+static inline word_t csr_imm(uint32_t i) {
+  return BITS(i, 19, 15);
 }
 
 static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_t *imm, int type) {
@@ -146,7 +153,53 @@ static int decode_exec(Decode *s) {
   INSTPAT("??????? ????? ????? 001 ????? 01000 11", sh     , S, Mw(src1 + imm, 2, src2));
   INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, src2));
 
+  // 2.8. Environment Call and Breakpoints
+  INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , N, s->dnpc = isa_raise_intr(ECALL_FROM_MMODE, s->pc)); // Exception code 
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); // R(10) is $a0
+
+  // privileged instruction
+  INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , N, s->dnpc = cpu.mepc);
+
+  // Zicsr extension
+  INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, {
+    int csr = BITS(s->isa.inst, 31, 20);
+    word_t t = csr_read(csr);
+    csr_write(csr, src1);
+    R(rd) = t;
+  });
+  INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, {
+    int csr = BITS(s->isa.inst, 31, 20);
+    word_t t = csr_read(csr);
+    if (BITS(s->isa.inst, 19, 15) != 0) csr_write(csr, t | src1);
+    R(rd) = t;
+  });
+  INSTPAT("??????? ????? ????? 011 ????? 11100 11", csrrc  , I, {
+    int csr = BITS(s->isa.inst, 31, 20);
+    word_t t = csr_read(csr);
+    if (BITS(s->isa.inst, 19, 15) != 0) csr_write(csr, t & ~src1);
+    R(rd) = t;
+  });
+  INSTPAT("??????? ????? ????? 101 ????? 11100 11", csrrwi , I, {
+    int csr = BITS(s->isa.inst, 31, 20);
+    word_t zimm = csr_imm(s->isa.inst);
+    word_t t = csr_read(csr);
+    csr_write(csr, zimm);
+    R(rd) = t;
+  });
+  INSTPAT("??????? ????? ????? 110 ????? 11100 11", csrrsi , I, {
+    int csr = BITS(s->isa.inst, 31, 20);
+    word_t zimm = csr_imm(s->isa.inst);
+    word_t t = csr_read(csr);
+    if (zimm != 0) csr_write(csr, t | zimm);
+    R(rd) = t;
+  });
+  INSTPAT("??????? ????? ????? 111 ????? 11100 11", csrrci , I, {
+    int csr = BITS(s->isa.inst, 31, 20);
+    word_t zimm = csr_imm(s->isa.inst);
+    word_t t = csr_read(csr);
+    if (zimm != 0) csr_write(csr, t & ~zimm);
+    R(rd) = t;
+  });
 
   // M extension
   INSTPAT("0000001 ????? ????? 000 ????? 01100 11", mul    , R, R(rd) = src1 * src2);
