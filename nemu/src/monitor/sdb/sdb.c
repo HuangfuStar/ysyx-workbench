@@ -159,6 +159,17 @@ static int cmd_p(char *args) {
     return 0;
 }
 
+static int cmd_iringbuf(char *args) {
+    (void)args;
+#ifdef CONFIG_IRINGBUF
+    extern void iringbuf_trace_msg(void);
+    iringbuf_trace_msg();
+#else
+    puts("Instruction ring buffer is disabled. Rebuild NEMU with CONFIG_IRINGBUF=y.");
+#endif
+    return 0;
+}
+
 static int cmd_q(char *args) {
   nemu_state.state = NEMU_QUIT;
   return -1;
@@ -181,6 +192,7 @@ static struct {
   { "x", "Read bytes from the memory", cmd_x },
   { "w", "Set a watchpoint", cmd_w },
   { "d", "Delete a watchpoint", cmd_d },
+  { "iringbuf", "Show the instruction ring buffer", cmd_iringbuf },
 
 };
 
