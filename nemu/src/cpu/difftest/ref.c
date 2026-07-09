@@ -19,15 +19,26 @@
 #include <memory/paddr.h>
 
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {
-  assert(0);
+  if (DIFFTEST_TO_REF != direction) assert(0 && "copy memory from ref to dut is invalid");
+  if (n == 0) return; // fix underflow
+  assert(in_pmem(addr) && in_pmem(addr + n - 1) && "memcpy from dut to ref out of bound");
+  memcpy(guest_to_host(addr), buf, n);
+
 }
 
 __EXPORT void difftest_regcpy(void *dut, bool direction) {
-  assert(0);
+  assert(dut && "null dut in difftest_regcpy");
+  if (DIFFTEST_TO_REF == direction) {
+    memcpy(&cpu, dut, sizeof(CPU_state));
+  } else 
+  if (DIFFTEST_TO_DUT == direction) {
+    memcpy(dut, &cpu, sizeof(CPU_state));
+    return;
+  } else assert(0);
 }
 
 __EXPORT void difftest_exec(uint64_t n) {
-  assert(0);
+  cpu_exec(n);
 }
 
 __EXPORT void difftest_raise_intr(word_t NO) {
