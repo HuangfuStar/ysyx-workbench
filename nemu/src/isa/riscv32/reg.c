@@ -42,6 +42,10 @@ void isa_reg_display() {
     puts("");
   }
   printf("%4s = " FMT_WORD "\n", "$pc", cpu.pc);
+  printf("%4s = " FMT_WORD "\t\t%4s = " FMT_WORD "\t\t",
+      "mstatus", cpu.mstatus, "mtvec", cpu.mtvec);
+  printf("%4s = " FMT_WORD "\t\t%4s = " FMT_WORD "\n",
+      "mepc", cpu.mepc, "mcause", cpu.mcause);
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {

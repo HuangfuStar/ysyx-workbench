@@ -94,6 +94,8 @@ static void statistic() {
 }
 
 void assert_fail_msg() {
+  IFDEF(CONFIG_IRINGBUF, extern void iringbuf_trace_msg(); iringbuf_trace_msg());
+  printf("Register Context:\n");
   isa_reg_display();
   statistic();
 }
