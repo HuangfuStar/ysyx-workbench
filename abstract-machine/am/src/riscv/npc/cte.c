@@ -2,19 +2,27 @@
 #include <riscv/riscv.h>
 #include <klib.h>
 
+#define IRQ_SYSCALL 11
+
 static Context* (*user_handler)(Event, Context*) = NULL;
 
 Context* __am_irq_handle(Context *c) {
-  if (user_handler) {
-    Event ev = {0};
-    switch (c->mcause) {
-      default: ev.event = EVENT_ERROR; break;
-    }
+  assert(c != NULL);
+  if (!user_handler) return c;
 
-    c = user_handler(ev, c);
-    assert(c != NULL);
+  Event ev = {0};
+  switch (c->mcause) {
+    case IRQ_SYSCALL:
+      c->mepc += 4;
+      ev.event = (c->GPR1 == (uintptr_t)-1 ? EVENT_YIELD : EVENT_SYSCALL);
+      break;
+    default:
+      ev.event = EVENT_ERROR;
+      break;
   }
 
+  c = user_handler(ev, c);
+  assert(c != NULL);
   return c;
 }
 
@@ -31,7 +39,14 @@ bool cte_init(Context*(*handler)(Event, Context*)) {
 }
 
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
-  return NULL;
+  Context *c = (Context *)kstack.end - 1;
+  *c = (Context) { 0 };
+
+  c->mstatus = 0x1800;
+  c->mepc = (uintptr_t)entry;
+  c->GPR2 = (uintptr_t)arg;
+
+  return c;
 }
 
 void yield() {
