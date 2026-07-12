@@ -80,7 +80,7 @@ extern "C" int pmem_read(int raddr) {
   const uint32_t addr = static_cast<uint32_t>(raddr) & ~0x3u;
   if (!in_pmem(addr)) {
     std::fprintf(stderr, "pmem_read out of range: 0x%08x\n", addr);
-    return 0;
+    assert(0 && "pmem_read out of range");
   }
 
   return static_cast<int>(pmem_read_word(addr));
@@ -95,7 +95,7 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask) {
   const uint32_t addr = static_cast<uint32_t>(waddr) & ~0x3u;
   if (!in_pmem(addr)) {
     std::fprintf(stderr, "pmem_write out of range: 0x%08x\n", addr);
-    std::exit(1);
+    assert(0 && "pmem_write out of range");
   }
 
   const uint32_t index = host_index(addr);

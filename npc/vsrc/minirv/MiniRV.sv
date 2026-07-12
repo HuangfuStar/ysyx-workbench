@@ -141,15 +141,15 @@ module MiniRV(
   endfunction
 
   function int npc_get_gpr(input int idx);
-    if (idx < 0 || idx >= 32) begin
+    if (idx < 0 || idx >= 16) begin
       npc_get_gpr = 0;
     end else begin
-      npc_get_gpr = u_GPR.u_RegisterFile.rf[idx[4:0]];
+      npc_get_gpr = u_GPR.u_RegisterFile.rf[{1'b0, idx[3:0]}];
     end
   endfunction
 
   function int npc_get_gpr_num();
-    npc_get_gpr_num = 32;
+    npc_get_gpr_num = 16;
   endfunction
 
   function int npc_get_inst();
@@ -161,11 +161,11 @@ module MiniRV(
   endfunction
 
   function int npc_get_mem_valid();
-    npc_get_mem_valid = w_dm_re || w_ctr_signal.ctr_DM_we;
+    npc_get_mem_valid = {31'b0, (w_dm_re || w_ctr_signal.ctr_DM_we)};
   endfunction
 
   function int npc_get_mem_is_write();
-    npc_get_mem_is_write = w_ctr_signal.ctr_DM_we;
+    npc_get_mem_is_write = {31'b0, w_ctr_signal.ctr_DM_we};
   endfunction
 
   function int npc_get_mem_addr();

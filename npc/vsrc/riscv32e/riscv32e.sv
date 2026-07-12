@@ -24,6 +24,8 @@ module riscv32e(
     logic [31:0] bimm;
     logic [31:0] uimm;
     logic [31:0] jimm;
+    logic [11:0] csr_addr;
+    logic [31:0] csr_uimm;
 
     logic [31:0] rs1_data;
     logic [31:0] rs2_data;
@@ -35,8 +37,14 @@ module riscv32e(
     logic [31:0] alu_src2;
     logic [31:0] alu_result;
     logic [31:0] mem_rdata;
+    logic [31:0] csr_rdata;
+    logic [31:0] csr_wdata;
+    logic [31:0] csr_mtvec;
+    logic [31:0] csr_mepc;
     logic        branch_taken;
-    logic        is_ebreak;
+    logic        csr_we;
+    logic        trap_we;
+    logic [31:0] trap_cause;
 
     ALUctr_t     alu_ctr;
     NextPCctr_t  nextpc_ctr;
@@ -52,20 +60,37 @@ module riscv32e(
     logic is_store;
     logic is_opimm;
     logic is_op;
+    logic is_system;
+    logic is_csr;
+    logic is_csrrw;
+    logic is_csrrs;
+    logic is_csrrc;
+    logic is_csrrwi;
+    logic is_csrrsi;
+    logic is_csrrci;
+    logic is_csr_imm;
+    logic is_ecall;
+    logic is_ebreak;
+    logic is_mret;
 
-    assign opcode = inst[6:0];
-    assign rd     = inst[11:7];
-    assign funct3 = inst[14:12];
-    assign rs1    = inst[19:15];
-    assign rs2    = inst[24:20];
-    assign funct7 = inst[31:25];
+    // split the instruction
+    assign opcode   = inst[6:0];
+    assign rd       = inst[11:7];
+    assign funct3   = inst[14:12];
+    assign rs1      = inst[19:15];
+    assign rs2      = inst[24:20];
+    assign funct7   = inst[31:25];
+    assign csr_addr = inst[31:20];
 
+    // construct the immediate
     assign iimm = {{20{inst[31]}}, inst[31:20]};
     assign simm = {{20{inst[31]}}, inst[31:25], inst[11:7]};
     assign bimm = {{19{inst[31]}}, inst[31], inst[7], inst[30:25], inst[11:8], 1'b0};
     assign uimm = {inst[31:12], 12'b0};
     assign jimm = {{11{inst[31]}}, inst[31], inst[19:12], inst[20], inst[30:21], 1'b0};
+    assign csr_uimm = {27'b0, rs1};
 
+    // decode the opocode
     assign is_lui    = (opcode == OPCODE_LUI);
     assign is_auipc  = (opcode == OPCODE_AUIPC);
     assign is_jal    = (opcode == OPCODE_JAL);
@@ -75,8 +100,23 @@ module riscv32e(
     assign is_store  = (opcode == OPCODE_STORE);
     assign is_opimm  = (opcode == OPCODE_OPIMM);
     assign is_op     = (opcode == OPCODE_OP);
-    assign is_ebreak = (opcode == OPCODE_SYSTEM) && (inst == EBREAK_INST);
+    assign is_system = (opcode == OPCODE_SYSTEM);
 
+    // detailed docoding 
+    assign is_csrrw  = is_system && (funct3 == FUNCT3_CSRRW);
+    assign is_csrrs  = is_system && (funct3 == FUNCT3_CSRRS);
+    assign is_csrrc  = is_system && (funct3 == FUNCT3_CSRRC);
+    assign is_csrrwi = is_system && (funct3 == FUNCT3_CSRRWI);
+    assign is_csrrsi = is_system && (funct3 == FUNCT3_CSRRSI);
+    assign is_csrrci = is_system && (funct3 == FUNCT3_CSRRCI);
+    assign is_csr_imm = is_csrrwi || is_csrrsi || is_csrrci;
+    assign is_csr    = is_csrrw || is_csrrs || is_csrrc || is_csrrwi || is_csrrsi || is_csrrci;
+
+    assign is_ecall  = is_system && (inst == ECALL_INST);
+    assign is_ebreak = is_system && (inst == EBREAK_INST);
+    assign is_mret   = is_system && (inst == MRET_INST);
+
+    // GPR write back selection signal
     always_comb begin
         wb_sel = GPR_WB_ALU;
         if (is_load) begin
@@ -85,9 +125,12 @@ module riscv32e(
             wb_sel = GPR_WB_PC4;
         end else if (is_lui) begin
             wb_sel = GPR_WB_IMM;
+        end else if (is_csr) begin
+            wb_sel = GPR_WB_CSR;
         end
     end
 
+    // ALU src2 selection control signal
     always_comb begin
         alu_src2_sel = ALU_SRC_RS2;
         if (is_store) begin
@@ -99,6 +142,7 @@ module riscv32e(
         end
     end
 
+    // ALU controller signal generation
     always_comb begin
         alu_ctr = ALU_ADD;
 
@@ -126,8 +170,9 @@ module riscv32e(
             endcase
         end
     end
-
-    assign alu_src1 = is_auipc ? pc : (is_lui ? 32'b0 : rs1_data);
+    
+    // ALU data source 
+    assign alu_src1 = is_auipc ? pc : rs1_data;
     assign alu_src2 =
         (alu_src2_sel == ALU_SRC_RS2)  ? rs2_data :
         (alu_src2_sel == ALU_SRC_IIMM) ? iimm :
@@ -135,10 +180,25 @@ module riscv32e(
                                          uimm;
 
     assign branch_taken = is_branch && alu_result[0];
+    assign csr_wdata = is_csr_imm ? csr_uimm : rs1_data;
+
+    // CSR write enable control signal
+    assign csr_we =
+        is_csrrw || is_csrrwi ||
+        (is_csrrs  && (rs1 != 5'd0)) ||
+        (is_csrrc  && (rs1 != 5'd0)) ||
+        (is_csrrsi && (rs1 != 5'd0)) ||
+        (is_csrrci && (rs1 != 5'd0));
+    assign trap_we = is_ecall;
+    assign trap_cause = MCAUSE_ECALL_M;
 
     always_comb begin
         nextpc_ctr = NEXTPC_A4;
-        if (is_jal) begin
+        if (is_ecall) begin
+            nextpc_ctr = NEXTPC_TRAP;
+        end else if (is_mret) begin
+            nextpc_ctr = NEXTPC_MRET;
+        end else if (is_jal) begin
             nextpc_ctr = NEXTPC_JAL;
         end else if (is_jalr) begin
             nextpc_ctr = NEXTPC_JALR;
@@ -148,11 +208,12 @@ module riscv32e(
     end
 
     assign gpr_we = !rst_in && (rd < 5'd16) && (rd != 5'd0) &&
-                    (is_lui || is_auipc || is_jal || is_jalr || is_load || is_opimm || is_op);
+                    (is_lui || is_auipc || is_jal || is_jalr || is_load || is_opimm || is_op || is_csr);
     assign gpr_wdata =
         (wb_sel == GPR_WB_MEM) ? mem_rdata :
         (wb_sel == GPR_WB_PC4) ? pc_step :
         (wb_sel == GPR_WB_IMM) ? uimm :
+        (wb_sel == GPR_WB_CSR) ? csr_rdata :
                                  alu_result;
 
     GPR #(
@@ -196,6 +257,21 @@ module riscv32e(
         .rdata(mem_rdata)
     );
 
+    CSR u_csr (
+        .clk_in(clk_in),
+        .rst_in(rst_in),
+        .addr_in(csr_addr),
+        .we_in(csr_we),
+        .cmd_in(funct3),
+        .wdata_in(csr_wdata),
+        .trap_we_in(trap_we),
+        .trap_pc_in(pc),
+        .trap_cause_in(trap_cause),
+        .rdata_out(csr_rdata),
+        .mtvec_out(csr_mtvec),
+        .mepc_out(csr_mepc)
+    );
+
     NextPC u_nextpc (
         .pc(pc),
         .rs1(rs1_data),
@@ -203,6 +279,8 @@ module riscv32e(
         .Bcond(branch_taken),
         .bimm(bimm),
         .jimm(jimm),
+        .mtvec(csr_mtvec),
+        .mepc(csr_mepc),
         .nextPCctr(nextpc_ctr),
         .pcs_next(pc_step),
         .pcd_next(pc_next)

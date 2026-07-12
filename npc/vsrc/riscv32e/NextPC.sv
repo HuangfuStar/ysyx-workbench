@@ -5,6 +5,8 @@ module NextPC (
     input  logic        Bcond,
     input  logic [31:0] bimm,
     input  logic [31:0] jimm,
+    input  logic [31:0] mtvec,
+    input  logic [31:0] mepc,
     input  NextPCPkg::NextPCctr_t nextPCctr,
 
     output logic [31:0] pcs_next,
@@ -18,6 +20,8 @@ module NextPC (
         (nextPCctr == NEXTPC_A4)   ? pcs_next :
         (nextPCctr == NEXTPC_JAL)  ? (pc + jimm) :
         (nextPCctr == NEXTPC_JALR) ? ((rs1 + iimm) & ~32'b1) :
+        (nextPCctr == NEXTPC_TRAP) ? mtvec :
+        (nextPCctr == NEXTPC_MRET) ? mepc :
         (nextPCctr == NEXTPC_BRANCH && Bcond)
                                     ? (pc + bimm)
                                     : pcs_next;
