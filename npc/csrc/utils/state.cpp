@@ -4,8 +4,10 @@
 #include <cstdio>
 #include <sys/time.h>
 
+#include "common.h"
 #include "device/device.h"
 #include "trace/trace.h"
+#include "utils/log.h"
 
 namespace {
 
@@ -57,14 +59,12 @@ int npc_get_halt_code() {
 
 int npc_report_exit_status() {
   if (g_halted) {
-#ifdef CONFIG_IRINGBUF
-    trace_dump_iringbuf();
-#endif
+    IFDEF(CONFIG_IRINGBUF, trace_dump_iringbuf();)
     device_trap_report(g_halt_pc, g_halt_code);
     return g_halt_code;
   }
 
-  std::fprintf(stderr, "simulation stopped before trap\n");
+  _Log("simulation stopped before trap\n");
   return 0;
 }
 

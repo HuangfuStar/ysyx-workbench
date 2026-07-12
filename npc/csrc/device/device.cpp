@@ -5,6 +5,7 @@
 
 #include "device/serial.h"
 #include "device/timer.h"
+#include "utils/log.h"
 
 namespace {
 
@@ -34,6 +35,6 @@ bool device_write(uint32_t addr, uint32_t data, uint8_t mask) {
 void device_trap_report(int pc, int code) {
   const char *trap_name = (code == 0) ? "HIT GOOD TRAP" : "HIT BAD TRAP";
   const char *trap_color = (code == 0) ? kAnsiFgGreen : kAnsiFgRed;
-  std::printf("npc: %s%s%s at pc = 0x%08x, code = %d\n",
+  _Log("npc: %s%s%s at pc = 0x%08x, code = %d\n",
       trap_color, trap_name, kAnsiNone, static_cast<uint32_t>(pc), code);
 }

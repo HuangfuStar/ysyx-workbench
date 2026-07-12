@@ -2,7 +2,9 @@
 
 #include <cstdio>
 
+#include "common.h"
 #include "trace/disasm.h"
+#include "utils/log.h"
 
 #ifdef CONFIG_IRINGBUF
 
@@ -30,20 +32,20 @@ void iringbuf_add(uint32_t pc, uint32_t inst) {
 
 void iringbuf_dump() {
   if (g_count == 0) {
-    std::puts("Instruction ring buffer is empty.");
+    _Log("Instruction ring buffer is empty.\n");
     return;
   }
 
-  std::puts("Instruction ring buffer:");
+  _Log("Instruction ring buffer:\n");
   const int start = (g_head - g_count + CONFIG_IRINGBUF_NR) % CONFIG_IRINGBUF_NR;
-  for (int i = 0; i < g_count; ++i) {
+  for (int i = 0; i < g_count && i < ARRLEN(g_buf); ++i) {
     const int idx = (start + i) % CONFIG_IRINGBUF_NR;
     if (!g_buf[idx].valid) {
       continue;
     }
     char asm_buf[128] = {};
     disassemble_inst(asm_buf, sizeof(asm_buf), g_buf[idx].pc, g_buf[idx].inst);
-    std::printf("%c 0x%08x: %s\n", (i == g_count - 1) ? '>' : ' ', g_buf[idx].pc, asm_buf);
+    _Log("%c 0x%08x: %s\n", (i == g_count - 1) ? '>' : ' ', g_buf[idx].pc, asm_buf);
   }
 }
 
@@ -55,7 +57,7 @@ void iringbuf_add(uint32_t pc, uint32_t inst) {
 }
 
 void iringbuf_dump() {
-  std::puts("Instruction ring buffer is disabled.");
+  _Log("Instruction ring buffer is disabled.\n");
 }
 
 #endif

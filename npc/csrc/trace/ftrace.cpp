@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "utils/log.h"
+
 namespace {
 
 using Elf_Ehdr = Elf32_Ehdr;
@@ -46,7 +48,7 @@ FtraceFunc *find_func(uint32_t addr) {
 
 void print_indent(int depth) {
   for (int i = 0; i < depth; ++i) {
-    std::printf("  ");
+    log_write("  ");
   }
 }
 
@@ -137,6 +139,8 @@ void init_ftrace(const char *elf_file) {
   std::free(syms);
   std::free(shdrs);
   std::fclose(fp);
+
+  Log("ftrace loaded %d function symbols from %s", g_nr_funcs, elf_file);
 }
 
 void ftrace_on_inst(uint32_t pc, uint32_t inst, uint32_t next_pc) {
@@ -149,7 +153,7 @@ void ftrace_on_inst(uint32_t pc, uint32_t inst, uint32_t next_pc) {
     if (rd == 1 || rd == 5) {
       FtraceFunc *func = find_func(next_pc);
       print_indent(g_call_depth);
-      std::printf("[ftrace] call 0x%08x -> %s@0x%08x\n",
+      log_write("[ftrace] call 0x%08x -> %s@0x%08x\n",
           pc, func ? func->name : "<unknown>", next_pc);
       ++g_call_depth;
     }
@@ -163,12 +167,12 @@ void ftrace_on_inst(uint32_t pc, uint32_t inst, uint32_t next_pc) {
       }
       FtraceFunc *func = find_func(pc);
       print_indent(g_call_depth);
-      std::printf("[ftrace] ret  %s@0x%08x -> 0x%08x\n",
+      log_write("[ftrace] ret  %s@0x%08x -> 0x%08x\n",
           func ? func->name : "<unknown>", pc, next_pc);
     } else if (rd == 1 || rd == 5) {
       FtraceFunc *func = find_func(next_pc);
       print_indent(g_call_depth);
-      std::printf("[ftrace] call 0x%08x -> %s@0x%08x\n",
+      log_write("[ftrace] call 0x%08x -> %s@0x%08x\n",
           pc, func ? func->name : "<unknown>", next_pc);
       ++g_call_depth;
     }

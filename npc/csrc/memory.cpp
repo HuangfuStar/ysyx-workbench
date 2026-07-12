@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <fstream>
 
+#include "common.h"
 #include "device/device.h"
 
 namespace {
@@ -33,7 +34,7 @@ uint32_t host_index(uint32_t addr) {
 }  // namespace
 
 void init_default_image() {
-  for (size_t i = 0; i < sizeof(kDefaultImg) / sizeof(kDefaultImg[0]); ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(ARRLEN(kDefaultImg)); ++i) {
     const uint32_t word = kDefaultImg[i];
     const uint32_t base = static_cast<uint32_t>(i) * 4;
     g_pmem[base + 0] = static_cast<uint8_t>(word & 0xffu);

@@ -7,6 +7,6 @@
 #include <cstring>
 #include <cstdlib>
 
-
+#include "macro.h"
 
 #endif

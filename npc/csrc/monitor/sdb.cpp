@@ -7,9 +7,11 @@
 #include <limits>
 #include <string>
 
+#include "common.h"
 #include "monitor/expr.h"
 #include "dut.h"
 #include "trace/trace.h"
+#include "utils/log.h"
 
 namespace {
 
@@ -138,7 +140,7 @@ Command kCmdTable[] = {
     {"iringbuf", "Dump instruction ring buffer", cmd_iringbuf},
 };
 
-constexpr size_t kNrCmd = sizeof(kCmdTable) / sizeof(kCmdTable[0]);
+constexpr size_t kNrCmd = ARRLEN(kCmdTable);
 
 int cmd_help(char *args) {
   if (args == nullptr) {
@@ -206,7 +208,7 @@ void sdb_mainloop() {
     }
 
     if (sim_is_halted()) {
-      std::printf("Program stopped at pc = 0x%08x, code = %d\n",
+      _Log("Program stopped at pc = 0x%08x, code = %d\n",
           static_cast<uint32_t>(sim_get_halt_pc()), sim_get_halt_code());
     }
   }

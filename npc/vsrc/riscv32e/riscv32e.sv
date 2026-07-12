@@ -94,7 +94,7 @@ module riscv32e(
     assign is_lui    = (opcode == OPCODE_LUI);
     assign is_auipc  = (opcode == OPCODE_AUIPC);
     assign is_jal    = (opcode == OPCODE_JAL);
-    assign is_jalr   = (opcode == OPCODE_JALR)   && (funct3 == 3'b000);
+    assign is_jalr   = (opcode == OPCODE_JALR)   && (funct3 == FUNCT3_JALR);
     assign is_branch = (opcode == OPCODE_BRANCH);
     assign is_load   = (opcode == OPCODE_LOAD);
     assign is_store  = (opcode == OPCODE_STORE);
@@ -148,24 +148,24 @@ module riscv32e(
 
         if (is_branch) begin
             unique case (funct3)
-                3'b000: alu_ctr = ALU_EQ;
-                3'b001: alu_ctr = ALU_NE;
-                3'b100: alu_ctr = ALU_LT;
-                3'b101: alu_ctr = ALU_GE;
-                3'b110: alu_ctr = ALU_LTU;
-                3'b111: alu_ctr = ALU_GEU;
+                FUNCT3_BEQ : alu_ctr = ALU_EQ;
+                FUNCT3_BNE : alu_ctr = ALU_NE;
+                FUNCT3_BLT : alu_ctr = ALU_LT;
+                FUNCT3_BGE : alu_ctr = ALU_GE;
+                FUNCT3_BLTU: alu_ctr = ALU_LTU;
+                FUNCT3_BGEU: alu_ctr = ALU_GEU;
                 default: alu_ctr = ALU_ADD;
             endcase
         end else if (is_op || is_opimm) begin
             unique case (funct3)
-                3'b000: alu_ctr = (is_op && (funct7 == 7'b0100000)) ? ALU_SUB : ALU_ADD;
-                3'b001: alu_ctr = ALU_SLL;
-                3'b010: alu_ctr = ALU_LT;
-                3'b011: alu_ctr = ALU_LTU;
-                3'b100: alu_ctr = ALU_XOR;
-                3'b101: alu_ctr = (funct7 == 7'b0100000) ? ALU_SRA : ALU_SRL;
-                3'b110: alu_ctr = ALU_OR;
-                3'b111: alu_ctr = ALU_AND;
+                FUNCT3_ADD_SUB: alu_ctr = (is_op && (funct7 == FUNCT7_SUB_SRA)) ? ALU_SUB : ALU_ADD;
+                FUNCT3_SLL    : alu_ctr = ALU_SLL;
+                FUNCT3_SLT    : alu_ctr = ALU_LT;
+                FUNCT3_SLTU   : alu_ctr = ALU_LTU;
+                FUNCT3_XOR    : alu_ctr = ALU_XOR;
+                FUNCT3_SRL_SRA: alu_ctr = (funct7 == FUNCT7_SUB_SRA) ? ALU_SRA : ALU_SRL;
+                FUNCT3_OR     : alu_ctr = ALU_OR;
+                FUNCT3_AND    : alu_ctr = ALU_AND;
                 default: alu_ctr = ALU_ADD;
             endcase
         end

@@ -9,12 +9,12 @@ ifeq ($(wildcard $(NPC_HOME)/csrc/npc-main.cpp),)
 endif
 
 # trace function switch
-CONFIG_ITRACE ?= 0
-CONFIG_MTRACE ?= 0
+CONFIG_ITRACE ?= 1
+CONFIG_MTRACE ?= 1
 CONFIG_FTRACE ?= 1
 CONFIG_IRINGBUF ?= 1
 CONFIG_IRINGBUF_NR ?= 16
-CONFIG_DIFFTEST ?= 0
+CONFIG_DIFFTEST ?= 1
 DIFF ?= $(NEMU_HOME)/build/riscv32-nemu-interpreter-so
 
 # basic target setup
@@ -25,6 +25,7 @@ BIN = $(BUILD_DIR)/$(TOPNAME)
 WAVE = $(BUILD_DIR)/wave.fst
 IMG ?=
 ELF ?= $(subst .bin,.elf,$(IMG))
+LOG ?=
 
 # check the validility of the ISA
 ifneq ($(MAKECMDGOALS),clean)
@@ -118,7 +119,7 @@ $(BIN): $(VSRCS) $(CSRCS) $(LIBCAPSTONE)
 		-o $(abspath $(BIN))
 
 run: $(BIN)
-	$(BIN) -b $(if $(ELF),-e $(ELF)) $(IMG)
+	$(BIN) -b $(if $(LOG),-l $(LOG)) $(if $(ELF),-e $(ELF)) $(IMG)
 
 sim: run
 
