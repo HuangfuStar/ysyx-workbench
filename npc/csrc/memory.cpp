@@ -11,7 +11,7 @@
 namespace {
 
 constexpr uint32_t kPmemBase = 0x80000000u;
-constexpr uint32_t kPmemSize = 1u << 20;
+constexpr uint32_t kPmemSize = 128u << 20;
 constexpr uint32_t kDefaultImg[] = {
   0x00000297u,
   0x00028823u,
@@ -23,7 +23,7 @@ constexpr uint32_t kDefaultImg[] = {
 uint8_t g_pmem[kPmemSize] = {};
 
 bool in_pmem(uint32_t addr) {
-  return addr >= kPmemBase && addr < (kPmemBase + kPmemSize);
+  return addr >= kPmemBase && (addr - kPmemBase) <= (kPmemSize - sizeof(uint32_t));
 }
 
 uint32_t host_index(uint32_t addr) {

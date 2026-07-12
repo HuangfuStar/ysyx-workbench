@@ -11,9 +11,11 @@ endif
 # trace function switch
 CONFIG_ITRACE ?= 0
 CONFIG_MTRACE ?= 0
-CONFIG_FTRACE ?= 0
-CONFIG_IRINGBUF ?= 0
+CONFIG_FTRACE ?= 1
+CONFIG_IRINGBUF ?= 1
 CONFIG_IRINGBUF_NR ?= 16
+CONFIG_DIFFTEST ?= 0
+DIFF ?= $(NEMU_HOME)/build/riscv32-nemu-interpreter-so
 
 # basic target setup
 WORK_DIR = $(shell pwd)
@@ -60,6 +62,9 @@ endif
 ifneq ($(CONFIG_IRINGBUF),0)
 VERILATOR_FLAGS += -DCONFIG_IRINGBUF -DCONFIG_IRINGBUF_NR=$(CONFIG_IRINGBUF_NR)
 endif
+ifneq ($(CONFIG_DIFFTEST),0)
+VERILATOR_FLAGS += -DCONFIG_DIFFTEST
+endif
 
 TRACE_CFLAGS = -DCONFIG_DEBUG --std=c++20
 ifneq ($(CONFIG_ITRACE),0)
@@ -74,6 +79,9 @@ endif
 ifneq ($(CONFIG_IRINGBUF),0)
 TRACE_CFLAGS += -DCONFIG_IRINGBUF -DCONFIG_IRINGBUF_NR=$(CONFIG_IRINGBUF_NR)
 endif
+ifneq ($(CONFIG_DIFFTEST),0)
+TRACE_CFLAGS += -DCONFIG_DIFFTEST
+endif
 
 # link the capstone
 TRACE_LDFLAGS =
@@ -82,6 +90,9 @@ ifneq ($(CONFIG_ITRACE)$(CONFIG_IRINGBUF),00)
 LIBCAPSTONE = $(abspath ../nemu/tools/capstone/repo/libcapstone.so.5)
 TRACE_CFLAGS += -I$(abspath ../nemu/tools/capstone/repo/include)
 TRACE_LDFLAGS += -ldl # for dlopen/dlsym/dlclose
+endif
+ifneq ($(CONFIG_DIFFTEST),0)
+TRACE_LDFLAGS += -ldl
 endif
 
 VERILATOR_FLAGS += --CFLAGS "$(TRACE_CFLAGS) $(NPC_INC)"
@@ -107,7 +118,7 @@ $(BIN): $(VSRCS) $(CSRCS) $(LIBCAPSTONE)
 		-o $(abspath $(BIN))
 
 run: $(BIN)
-	-@$(BIN) $(IMG) -b $(if $(ELF),-e $(ELF))
+	$(BIN) -b $(if $(ELF),-e $(ELF)) $(IMG)
 
 sim: run
 
